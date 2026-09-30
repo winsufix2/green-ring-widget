@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Пульт стримера — Зелёное кольцо Москвы</title>
+  <link rel="stylesheet" href="css/mobile.css">
+</head>
+<body>
+  <div class="mobile-container">
+    
+    <header>
+      <h1>Зелёное кольцо Москвы</h1>
+      <div class="subtitle">Пульт стримера: передача GPS & Пульса в OBS</div>
+    </header>
+
+    <!-- Connection Status -->
+    <div style="text-align: center;">
+      <div id="conn-status" class="connection-pill conn-offline">
+        <span class="dot"></span>ПОДКЛЮЧЕНИЕ К ОБС...
+      </div>
+    </div>
+
+    <!-- GPS Main Card -->
+    <section class="card">
+      <div class="card-title">
+        <span>Геолокация стримера</span>
+        <span id="val-accuracy">±0м</span>
+      </div>
+
+      <button id="btn-gps-toggle" class="btn-primary">
+        🛰️ НАЧАТЬ ТРАНСЛЯЦИЮ GPS
+      </button>
+
+      <div class="metrics-grid">
+        <div class="metric-box">
+          <div id="val-speed" class="metric-val">0.0</div>
+          <div class="metric-unit">скорость (км/ч)</div>
+        </div>
+        <div class="metric-box">
+          <div id="val-dist" class="metric-val">0.00</div>
+          <div class="metric-unit">дистанция (км)</div>
+        </div>
+      </div>
+
+      <div class="metric-box" style="margin-top: 10px; text-align: left; padding: 10px 14px;">
+        <div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase;">Ближайший парк на кольце:</div>
+        <div id="val-park" style="font-size: 16px; font-weight: 700; color: #00e676; margin-top: 2px;">
+          Ботанический сад
+        </div>
+      </div>
+    </section>
+
+    <!-- Heart Rate (BPM) Card -->
+    <section class="card">
+      <div class="card-title">
+        <span>Пульс (BPM)</span>
+        <span style="color: var(--accent-red); font-weight: 800;">❤️ <span id="val-bpm">0</span> BPM</span>
+      </div>
+
+      <button id="btn-ble-connect" class="btn-secondary" style="background: rgba(255, 51, 75, 0.15); border-color: rgba(255, 51, 75, 0.4); color: #fff;">
+        🔗 ПОДКЛЮЧИТЬ ЧАСЫ REDMI WATCH 6
+      </button>
+
+      <div style="font-size: 12px; color: #cbd5e1; margin-top: 10px; line-height: 1.5; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px;">
+        <b style="color: #38bdf8;">Инструкция для Redmi Watch 6:</b><br>
+        1. На часах откройте любую тренировку (например, «Ходьба на улице»).<br>
+        2. Пролистайте в настройки тренировки (шестерёнка) ➔ включите <b>«Трансляция пульса»</b> (Heart Rate Broadcast).<br>
+        3. Нажмите кнопку <b>«ПОДКЛЮЧИТЬ ЧАСЫ»</b> выше и выберите часы в списке Bluetooth.
+      </div>
+
+      <!-- Quick Manual BPM Controls as backup -->
+      <div style="font-size: 11px; color: var(--text-muted); margin-top: 12px; text-transform: uppercase;">
+        Резервный ввод пульса вручную:
+      </div>
+      <div class="bpm-presets">
+        <button class="btn-preset" data-bpm="80">80</button>
+        <button class="btn-preset" data-bpm="115">115</button>
+        <button class="btn-preset" data-bpm="140">140</button>
+        <button class="btn-preset" data-bpm="165">165</button>
+      </div>
+
+      <div class="bpm-step-row">
+        <button id="btn-bpm-minus" class="btn-step">- 5 BPM</button>
+        <button id="btn-bpm-plus" class="btn-step">+ 5 BPM</button>
+      </div>
+    </section>
+
+    <!-- Status Log -->
+    <section class="card">
+      <div class="card-title">Лог отправки в OBS</div>
+      <div id="status-log" class="status-log">Ожидание запуска GPS...</div>
+    </section>
+
+  </div>
+
+  <script type="module" src="js/mobile.js"></script>
+</body>
+</html>

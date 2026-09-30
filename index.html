@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=1920, height=1080, initial-scale=1.0">
+  <title>Зеленое кольцо Москвы — Виджет OBS / Twitch</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="overlay-root">
+    
+    <!-- ====================================================================
+         TOP HUD: SPEED, HEART RATE (BPM), LOCATION, STATUS
+         ==================================================================== -->
+    <header id="top-hud">
+      <!-- SPEED Indicator -->
+      <div class="hud-item hud-speed">
+        <span class="speed-label">SPEED</span>
+        <div class="speed-value-wrap">
+          <span id="hud-speed-value">0.0</span>
+          <span class="speed-unit">км/ч</span>
+        </div>
+      </div>
+
+      <div class="hud-divider"></div>
+
+      <!-- BPM Heart Rate Indicator -->
+      <div class="hud-item hud-bpm">
+        <div class="heart-wrap">
+          <svg id="hud-heart-icon" viewBox="0 0 24 24">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+          </svg>
+        </div>
+        <div class="bpm-value-wrap">
+          <span id="hud-bpm-value">0</span>
+          <span class="bpm-unit">BPM</span>
+        </div>
+      </div>
+
+      <div class="hud-divider"></div>
+
+      <!-- Current Park & Route Progress -->
+      <div class="hud-item hud-location">
+        <div id="hud-park-badge">📍 Ожидание геопозиции...</div>
+        <div class="progress-track-wrap">
+          <div class="progress-track">
+            <div id="hud-progress-fill"></div>
+          </div>
+          <span id="hud-progress-text">0%</span>
+        </div>
+      </div>
+
+      <div class="hud-divider"></div>
+
+      <!-- Live Status Pills -->
+      <div class="hud-pills-wrap">
+        <div id="hud-gps-pill" class="hud-pill status-waiting">
+          <span class="status-dot"></span>GPS: ОЖИДАНИЕ
+        </div>
+        <div id="hud-bpm-pill" class="hud-pill status-waiting">
+          <span class="status-dot"></span>BPM: ОЖИДАНИЕ
+        </div>
+      </div>
+    </header>
+
+    <!-- ====================================================================
+         CIRCULAR MOSCOW GREEN RING MAP & CAP MARKER
+         ==================================================================== -->
+    <main id="widget-stage">
+      <div id="map-viewport">
+        <div id="map-container">
+          <!-- Background image of Moscow Green Ring -->
+          <img id="map-image" src="map.png" alt="Зеленое кольцо Москвы" draggable="false">
+
+          <!-- Glowing ring track overlay -->
+          <div id="route-glow-ring"></div>
+
+          <!-- Dynamic Moving Cap Marker -->
+          <div id="marker-wrapper">
+            <!-- Pulsing radar wave beacon -->
+            <div id="marker-pulse"></div>
+
+            <!-- Cap from public/cap.png -->
+            <img id="marker-cap" src="cap.png" alt="Маркер кепка" draggable="false">
+
+            <!-- Fallback SVG Cap (if cap.png fails to load) -->
+            <div id="marker-fallback">
+              <svg class="fallback-cap-svg" viewBox="0 0 64 64" fill="none">
+                <circle cx="32" cy="32" r="28" fill="#e53935" stroke="#ffffff" stroke-width="3"/>
+                <path d="M16 38 C 22 24, 42 24, 48 38 Z" fill="#b71c1c"/>
+                <ellipse cx="32" cy="40" rx="16" ry="6" fill="#d32f2f"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ====================================================================
+         STREAM CONTROLS PANEL (Hidden in clean OBS mode or via 'H' key)
+         ==================================================================== -->
+    <aside id="controls-panel">
+      <div class="controls-header">
+        <span>Статус приёма стрима</span>
+        <span class="shortcut-hints">Скрыть: <kbd>H</kbd></span>
+      </div>
+
+      <div class="controls-buttons">
+        <button id="btn-toggle-layout" class="interactive-btn">
+          📐 Сменить угол
+        </button>
+        <button id="btn-copy-mobile-link" class="interactive-btn">
+          📱 Скопировать ссылку для стримера
+        </button>
+      </div>
+
+      <div class="shortcut-hints">
+        <span>Скрыть панель: <kbd>H</kbd></span>
+        <span>Положение: <kbd>L</kbd></span>
+      </div>
+
+      <div id="status-message"></div>
+    </aside>
+
+  </div>
+
+  <script type="module" src="js/overlay.js"></script>
+</body>
+</html>
