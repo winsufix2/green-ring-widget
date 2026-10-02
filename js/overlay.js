@@ -87,10 +87,12 @@ class StreamOverlay {
     this.urlParams = new URLSearchParams(window.location.search);
 
     // Initial distance parameter (default 32.0 km)
+    // Supports ?dist=32 or ?km=32 to initialize or reset distance anytime
     const paramDist = parseFloat(this.urlParams.get('dist') || this.urlParams.get('km'));
     if (!isNaN(paramDist) && paramDist >= 0) {
       this.baseDistanceKm = paramDist;
       this.totalDistanceKm = paramDist;
+      this.accumulatedDistanceMeters = 0;
       try {
         localStorage.setItem('green_ring_total_dist_km', paramDist.toFixed(2));
       } catch (e) {}
@@ -247,7 +249,9 @@ class StreamOverlay {
 
   // Handle GPS location updates and automatically accumulate distance
   handleGpsLocation(loc) {
-    // 1. Accumulate physical distance automatically via Haversine
+    const now = Date.now();
+
+    // 1. Accumulate physical distance automatically via Haversine formula
     if (this.lastTrackedGps && typeof loc.lat === 'number' && typeof loc.lon === 'number') {
       const deltaM = haversineDistance(
         this.lastTrackedGps.lat,
@@ -256,8 +260,11 @@ class StreamOverlay {
         loc.lon
       );
 
-      // Filter GPS drift: only add if movement is realistic (between 2.5m and 500m per interval)
-      if (deltaM >= 2.5 && deltaM < 500) {
+      const timeDeltaSec = Math.max(0.5, (now - (this.lastTrackedGps.time || now)) / 1000);
+      const impliedSpeedKmh = (deltaM / timeDeltaSec) * 3.6;
+
+      // Filter GPS jitter: must move at least 2.5 meters, realistic speed (< 90 km/h)
+      if (deltaM >= 2.5 && impliedSpeedKmh <= 90) {
         this.accumulatedDistanceMeters += deltaM;
         this.totalDistanceKm = this.baseDistanceKm + (this.accumulatedDistanceMeters / 1000);
         this.updateDistanceDisplay(this.totalDistanceKm);
@@ -266,10 +273,12 @@ class StreamOverlay {
           localStorage.setItem('green_ring_total_dist_km', this.totalDistanceKm.toFixed(2));
         } catch (e) {}
 
-        this.lastTrackedGps = { lat: loc.lat, lon: loc.lon };
+        this.lastTrackedGps = { lat: loc.lat, lon: loc.lon, time: now };
+      } else if (deltaM < 2.5) {
+        this.lastTrackedGps.time = now;
       }
     } else if (typeof loc.lat === 'number' && typeof loc.lon === 'number') {
-      this.lastTrackedGps = { lat: loc.lat, lon: loc.lon };
+      this.lastTrackedGps = { lat: loc.lat, lon: loc.lon, time: now };
     }
 
     // 2. Project marker onto ring
