@@ -117,12 +117,14 @@ html, body {
   text-transform: uppercase;
 }
 
-/* BPM / Heart Rate Display */
-.hud-bpm {
-  font-weight: 800;
+/* DISTANCE Display */
+.hud-distance {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
-.heart-wrap {
+.distance-icon-wrap {
   position: relative;
   display: flex;
   align-items: center;
@@ -131,46 +133,55 @@ html, body {
   height: 32px;
 }
 
-#hud-heart-icon {
-  width: 28px;
-  height: 28px;
-  fill: var(--accent-red);
-  filter: drop-shadow(0 0 8px var(--glow-red));
-  transform-origin: center;
+#hud-distance-icon {
+  width: 26px;
+  height: 26px;
+  fill: #00e676;
+  filter: drop-shadow(0 0 8px rgba(0, 230, 118, 0.6));
+  animation: runner-bounce 1.2s infinite ease-in-out;
 }
 
-#hud-heart-icon.beating {
-  animation: heart-pulse 0.8s infinite ease-in-out;
+@keyframes runner-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
 }
 
-@keyframes heart-pulse {
-  0% { transform: scale(1); }
-  14% { transform: scale(1.3); }
-  28% { transform: scale(1); }
-  42% { transform: scale(1.18); }
-  70% { transform: scale(1); }
+.distance-value-wrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
-.bpm-value-wrap {
+.distance-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.distance-number-wrap {
   display: flex;
   align-items: baseline;
   gap: 5px;
 }
 
-#hud-bpm-value {
+#hud-distance-value {
   font-family: var(--font-mono);
   font-size: 30px;
   font-weight: 700;
   color: #ffffff;
-  min-width: 48px;
-  text-shadow: 0 0 12px var(--glow-red);
-  transition: color 0.3s ease;
+  min-width: 58px;
+  text-shadow: 0 0 12px rgba(0, 230, 118, 0.4);
+  line-height: 1;
 }
 
-.bpm-unit {
+.distance-unit {
   font-size: 14px;
   font-weight: 700;
-  color: var(--accent-red);
+  color: #00e676;
   letter-spacing: 0.5px;
 }
 

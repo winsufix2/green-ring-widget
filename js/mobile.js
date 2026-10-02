@@ -10,6 +10,7 @@ class MobileTracker {
     // GPS metrics
     this.lastFix = null;
     this.currentSpeed = 0;
+    this.baseDistanceKm = 32.0;
     this.totalDistanceM = 0;
 
     // Heart rate
@@ -200,7 +201,8 @@ class MobileTracker {
     this.el.valSpeed.textContent = roundedSpeed.toFixed(1);
     this.el.valAccuracy.textContent = `±${Math.round(accuracy)}м`;
     this.el.valPark.textContent = projection.currentPark;
-    this.el.valDist.textContent = `${(this.totalDistanceM / 1000).toFixed(2)} км`;
+    const totalKm = this.baseDistanceKm + (this.totalDistanceM / 1000);
+    this.el.valDist.textContent = `${totalKm.toFixed(2)} км`;
 
     // Transmit to OBS
     this.sendGpsData({

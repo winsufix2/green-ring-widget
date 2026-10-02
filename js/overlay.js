@@ -1,7 +1,7 @@
 import { MAP_CONFIG, GREEN_RING_PARKS } from './config.js';
 import { GpsTracker } from './gps-tracker.js';
 import { BpmModule } from './bpm-module.js';
-import { angleToPixels } from './map-projection.js';
+import { angleToPixels, haversineDistance } from './map-projection.js';
 
 class StreamOverlay {
   constructor() {
@@ -20,9 +20,12 @@ class StreamOverlay {
 
     // Stream state
     this.speedKmh = 0;
-    this.bpmValue = 0;
-    this.currentPark = 'Ожидание сигнала...';
-    this.progressPercent = 0;
+    this.baseDistanceKm = 32.0;
+    this.accumulatedDistanceMeters = 0;
+    this.totalDistanceKm = 32.0;
+    this.lastTrackedGps = null;
+    this.currentPark = 'Парк «Измайлово»';
+    this.progressPercent = 20;
 
     // Check cap image availability
     this.capImgAvailable = false;
@@ -42,12 +45,12 @@ class StreamOverlay {
     // This allows Moblin on the streamer's phone to track location autonomously!
     this.gpsTracker.start();
 
-    // Auto-connect to Pulsoid or HypeRate if token provided in URL
+    // Auto-connect to Pulsoid or HypeRate if token provided in URL (optional fallback)
     const pulsoidToken = this.urlParams.get('pulsoid');
     const hyperateId = this.urlParams.get('hyperate');
-    if (pulsoidToken) {
+    if (pulsoidToken && this.bpmModule) {
       this.bpmModule.connectPulsoid(pulsoidToken);
-    } else if (hyperateId) {
+    } else if (hyperateId && this.bpmModule) {
       this.bpmModule.connectHypeRate(hyperateId);
     }
   }
@@ -64,11 +67,12 @@ class StreamOverlay {
 
       // Top HUD
       speedValue: document.getElementById('hud-speed-value'),
+      distanceValue: document.getElementById('hud-distance-value'),
+      distanceIcon: document.getElementById('hud-distance-icon'),
       bpmValue: document.getElementById('hud-bpm-value'),
       heartIcon: document.getElementById('hud-heart-icon'),
       parkBadge: document.getElementById('hud-park-badge'),
       gpsStatusPill: document.getElementById('hud-gps-pill'),
-      bpmStatusPill: document.getElementById('hud-bpm-pill'),
       progressFill: document.getElementById('hud-progress-fill'),
       progressText: document.getElementById('hud-progress-text'),
 
@@ -81,6 +85,30 @@ class StreamOverlay {
 
   parseUrlParams() {
     this.urlParams = new URLSearchParams(window.location.search);
+
+    // Initial distance parameter (default 32.0 km)
+    const paramDist = parseFloat(this.urlParams.get('dist') || this.urlParams.get('km'));
+    if (!isNaN(paramDist) && paramDist >= 0) {
+      this.baseDistanceKm = paramDist;
+      this.totalDistanceKm = paramDist;
+      try {
+        localStorage.setItem('green_ring_total_dist_km', paramDist.toFixed(2));
+      } catch (e) {}
+    } else {
+      try {
+        const saved = parseFloat(localStorage.getItem('green_ring_total_dist_km'));
+        if (!isNaN(saved) && saved >= 32.0) {
+          this.totalDistanceKm = saved;
+          this.baseDistanceKm = saved;
+        } else {
+          this.baseDistanceKm = 32.0;
+          this.totalDistanceKm = 32.0;
+        }
+      } catch (e) {
+        this.baseDistanceKm = 32.0;
+        this.totalDistanceKm = 32.0;
+      }
+    }
 
     // Layout configuration
     const layout = this.urlParams.get('layout') || this.urlParams.get('pos') || 'default';
@@ -130,7 +158,7 @@ class StreamOverlay {
       onSpeed: (speed) => this.updateSpeedDisplay(speed)
     });
 
-    // Initialize BPM Module
+    // Initialize BPM Module (fallback)
     this.bpmModule = new BpmModule({
       onBpm: (bpm, source) => this.handleBpmUpdate(bpm, source),
       onStatus: (status) => this.handleBpmStatus(status)
@@ -143,12 +171,17 @@ class StreamOverlay {
   }
 
   initDefaultLocation() {
-    const def = GREEN_RING_PARKS[0];
-    const initialCoords = angleToPixels(def.angleDeg);
+    // 32 km corresponds to Park 7: Парк «Измайлово» (kmMark ~33)
+    const izmaylovoPark = GREEN_RING_PARKS.find((p) => p.id === 7) || GREEN_RING_PARKS[0];
+    const initialCoords = angleToPixels(izmaylovoPark.angleDeg);
     this.currentMarkerX = initialCoords.x;
     this.currentMarkerY = initialCoords.y;
     this.targetMarkerX = initialCoords.x;
     this.targetMarkerY = initialCoords.y;
+    this.markerAngle = izmaylovoPark.angleDeg;
+
+    this.updateParkInfo(izmaylovoPark.name);
+    this.updateDistanceDisplay(this.totalDistanceKm);
   }
 
   initWebSocket() {
@@ -179,17 +212,19 @@ class StreamOverlay {
 
     if (msg.type === 'init') {
       const state = msg.data;
-      if (state.bpm && state.bpm.value > 0) {
-        this.handleBpmUpdate(state.bpm.value, state.bpm.source);
-      }
       if (state.gps && state.gps.speed !== undefined) {
         this.gpsTracker.feedExternalGps(state.gps);
       }
+      if (typeof state.dist === 'number') {
+        this.updateDistanceDisplay(state.dist);
+      }
     } else if (msg.type === 'gps') {
       this.gpsTracker.feedExternalGps(msg.data);
-    } else if (msg.type === 'bpm') {
-      const bpmVal = msg.data?.value ?? msg.data;
-      this.handleBpmUpdate(bpmVal, msg.data?.source || 'remote');
+    } else if (msg.type === 'dist') {
+      const distVal = msg.data?.value ?? msg.data;
+      if (typeof distVal === 'number') {
+        this.updateDistanceDisplay(distVal);
+      }
     }
   }
 
@@ -210,21 +245,51 @@ class StreamOverlay {
     });
   }
 
-  // Handle GPS location updates
+  // Handle GPS location updates and automatically accumulate distance
   handleGpsLocation(loc) {
+    // 1. Accumulate physical distance automatically via Haversine
+    if (this.lastTrackedGps && typeof loc.lat === 'number' && typeof loc.lon === 'number') {
+      const deltaM = haversineDistance(
+        this.lastTrackedGps.lat,
+        this.lastTrackedGps.lon,
+        loc.lat,
+        loc.lon
+      );
+
+      // Filter GPS drift: only add if movement is realistic (between 2.5m and 500m per interval)
+      if (deltaM >= 2.5 && deltaM < 500) {
+        this.accumulatedDistanceMeters += deltaM;
+        this.totalDistanceKm = this.baseDistanceKm + (this.accumulatedDistanceMeters / 1000);
+        this.updateDistanceDisplay(this.totalDistanceKm);
+
+        try {
+          localStorage.setItem('green_ring_total_dist_km', this.totalDistanceKm.toFixed(2));
+        } catch (e) {}
+
+        this.lastTrackedGps = { lat: loc.lat, lon: loc.lon };
+      }
+    } else if (typeof loc.lat === 'number' && typeof loc.lon === 'number') {
+      this.lastTrackedGps = { lat: loc.lat, lon: loc.lon };
+    }
+
+    // 2. Project marker onto ring
     const proj = loc.projection;
     if (proj) {
       this.targetMarkerX = proj.x;
       this.targetMarkerY = proj.y;
       this.markerAngle = proj.angleDeg;
-      this.updateParkInfo(proj.currentPark, proj.progressPercent);
+      this.updateParkInfo(proj.currentPark);
     }
 
-    this.elements.gpsStatusPill.className = 'hud-pill status-live';
-    this.elements.gpsStatusPill.innerHTML = '<span class="status-dot"></span>GPS LIVE';
+    if (this.elements.gpsStatusPill) {
+      this.elements.gpsStatusPill.className = 'hud-pill status-live';
+      this.elements.gpsStatusPill.innerHTML = '<span class="status-dot"></span>GPS LIVE';
+    }
   }
 
   handleGpsStatus(status) {
+    if (!this.elements.gpsStatusPill) return;
+
     if (status.type === 'live') {
       this.elements.gpsStatusPill.className = 'hud-pill status-live';
       this.elements.gpsStatusPill.innerHTML = '<span class="status-dot"></span>GPS LIVE';
@@ -237,58 +302,44 @@ class StreamOverlay {
     }
   }
 
-  // Handle BPM updates
+  // Handle BPM updates (safe fallback if still used anywhere)
   handleBpmUpdate(bpm, source) {
-    this.bpmValue = Math.max(0, bpm);
-    this.elements.bpmValue.textContent = this.bpmValue;
-
-    if (this.bpmValue > 30) {
-      const beatIntervalSec = 60 / this.bpmValue;
-      this.elements.heartIcon.style.animationDuration = `${beatIntervalSec.toFixed(2)}s`;
-      this.elements.heartIcon.classList.add('beating');
-
-      if (this.bpmValue >= 160) {
-        this.elements.bpmValue.style.color = '#ff1744';
-      } else if (this.bpmValue >= 140) {
-        this.elements.bpmValue.style.color = '#ff9100';
-      } else if (this.bpmValue >= 115) {
-        this.elements.bpmValue.style.color = '#00e676';
-      } else {
-        this.elements.bpmValue.style.color = '#ffffff';
-      }
-
-      this.elements.bpmStatusPill.className = 'hud-pill status-live';
-      this.elements.bpmStatusPill.innerHTML = `<span class="status-dot"></span>BPM: ${source.toUpperCase()}`;
-    } else {
-      this.elements.heartIcon.classList.remove('beating');
-      this.elements.bpmValue.style.color = '#888888';
-      this.elements.bpmStatusPill.className = 'hud-pill status-waiting';
-      this.elements.bpmStatusPill.innerHTML = '<span class="status-dot"></span>BPM: ОЖИДАНИЕ';
+    if (this.elements.bpmValue) {
+      this.elements.bpmValue.textContent = Math.max(0, bpm);
     }
   }
 
-  handleBpmStatus(status) {
-    if (status.type === 'connected') {
-      console.log('[BPM]', status.message);
-    }
-  }
+  handleBpmStatus(status) {}
 
   updateSpeedDisplay(speed) {
     this.speedKmh = speed;
-    this.elements.speedValue.textContent = speed.toFixed(1);
+    if (this.elements.speedValue) {
+      this.elements.speedValue.textContent = speed.toFixed(1);
+    }
   }
 
-  updateParkInfo(parkName, progressPercent) {
-    this.currentPark = parkName;
-    this.progressPercent = progressPercent;
-    if (this.elements.parkBadge) {
-      this.elements.parkBadge.textContent = `📍 ${parkName}`;
+  updateDistanceDisplay(distKm) {
+    this.totalDistanceKm = distKm;
+    if (this.elements.distanceValue) {
+      this.elements.distanceValue.textContent = distKm.toFixed(1);
     }
+
+    // Route Progress: 160 km total
+    const progressPct = Math.min(100, Math.max(0, Math.round((distKm / MAP_CONFIG.totalRouteLengthKm) * 100)));
+    this.progressPercent = progressPct;
+
     if (this.elements.progressFill) {
-      this.elements.progressFill.style.width = `${progressPercent}%`;
+      this.elements.progressFill.style.width = `${progressPct}%`;
     }
     if (this.elements.progressText) {
-      this.elements.progressText.textContent = `${progressPercent}%`;
+      this.elements.progressText.textContent = `${progressPct}%`;
+    }
+  }
+
+  updateParkInfo(parkName) {
+    this.currentPark = parkName;
+    if (this.elements.parkBadge) {
+      this.elements.parkBadge.textContent = `📍 ${parkName}`;
     }
   }
 
