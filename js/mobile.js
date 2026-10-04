@@ -10,7 +10,7 @@ class MobileTracker {
     // GPS metrics
     this.lastFix = null;
     this.currentSpeed = 0;
-    this.baseDistanceKm = 32.0;
+    this.baseDistanceKm = 129.7;
     this.totalDistanceM = 0;
 
     // Heart rate

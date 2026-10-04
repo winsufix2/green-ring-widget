@@ -20,9 +20,9 @@ class StreamOverlay {
 
     // Stream state
     this.speedKmh = 0;
-    this.baseDistanceKm = 32.0;
+    this.baseDistanceKm = 129.7;
     this.accumulatedDistanceMeters = 0;
-    this.totalDistanceKm = 32.0;
+    this.totalDistanceKm = 129.7;
     this.lastTrackedGps = null;
     this.currentPark = 'Парк «Измайлово»';
     this.progressPercent = 20;
@@ -86,8 +86,8 @@ class StreamOverlay {
   parseUrlParams() {
     this.urlParams = new URLSearchParams(window.location.search);
 
-    // Initial distance parameter (default 32.0 km)
-    // Supports ?dist=32 or ?km=32 to initialize or reset distance anytime
+    // Initial distance parameter (default 129.7 km)
+    // Supports ?dist=129.7 or ?km=129.7 to initialize or reset distance anytime
     const paramDist = parseFloat(this.urlParams.get('dist') || this.urlParams.get('km'));
     if (!isNaN(paramDist) && paramDist >= 0) {
       this.baseDistanceKm = paramDist;
@@ -99,16 +99,16 @@ class StreamOverlay {
     } else {
       try {
         const saved = parseFloat(localStorage.getItem('green_ring_total_dist_km'));
-        if (!isNaN(saved) && saved >= 32.0) {
+        if (!isNaN(saved) && saved >= 129.7) {
           this.totalDistanceKm = saved;
           this.baseDistanceKm = saved;
         } else {
-          this.baseDistanceKm = 32.0;
-          this.totalDistanceKm = 32.0;
+          this.baseDistanceKm = 129.7;
+          this.totalDistanceKm = 129.7;
         }
       } catch (e) {
-        this.baseDistanceKm = 32.0;
-        this.totalDistanceKm = 32.0;
+        this.baseDistanceKm = 129.7;
+        this.totalDistanceKm = 129.7;
       }
     }
 
